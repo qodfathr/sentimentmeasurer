@@ -15,7 +15,8 @@
   <description>Vert.x - HTTP endpoint + Config Map</description>
 
   <properties>
-    <vertx.version>3.4.2.redhat-009</vertx.version>
+    <!-- vertx.version>3.4.2.redhat-009</vertx.version -->
+    <vertx.version>3.5.0</vertx.version>
     <vertx-maven-plugin.version>1.0.13</vertx-maven-plugin.version>
     <vertx.verticle>io.openshift.booster.HttpApplication</vertx.verticle>
   </properties>
@@ -46,6 +47,13 @@
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web-client</artifactId>
     </dependency>
+
+    <!-- Vertx Health Checks -->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-health-check</artifactId>
+    </dependency>
+
 
     <!-- Vertx Configuration Service -->
     <dependency>
@@ -132,6 +140,9 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <redeploy>true</redeploy>
+        </configuration>
       </plugin>
     </plugins>
   </build>
