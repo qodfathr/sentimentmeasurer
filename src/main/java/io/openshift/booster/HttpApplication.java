@@ -15,6 +15,11 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
+import io.vertx.ext.web.client.*;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
+import io.vertx.ext.healthchecks.HealthCheckHandler;
+import io.vertx.ext.healthchecks.Status;
 
 import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
 
@@ -28,13 +33,19 @@ public class HttpApplication extends AbstractVerticle {
 
     private static final Logger LOGGER = LogManager.getLogger(HttpApplication.class);
     private JsonObject config;
+    
+    private boolean online = false;
 
     @Override
-    public void start() {
+    public void start(Future<Void> future) {
         setUpConfiguration();
 
+        HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx)
+            .register("server-online", fut -> fut.complete(online ? Status.OK() : Status.KO()));
+        
         Router router = Router.router(vertx);
         router.get("/api/greeting").handler(this::greeting);
+        router.get("/api/sentiment").handler(this::sentiment);
         router.get("/health").handler(rc -> rc.response().end("OK"));
         router.get("/").handler(StaticHandler.create());
 
@@ -48,9 +59,12 @@ public class HttpApplication extends AbstractVerticle {
                     .listen(
                         // Retrieve the port from the configuration,
                         // default to 8080.
-                        config().getInteger("http.port", 8080));
+                        config().getInteger("http.port", 8080), ar2 -> {
+                            online = ar2.succeeded();
+                            future.handle(ar2.mapEmpty()); 
+                        });
+        });
 
-            });
 
         // It should use the retrieve.listen method, however it does not catch the deletion of the config map.
         // https://github.com/vert-x3/vertx-config/issues/7
@@ -101,6 +115,32 @@ public class HttpApplication extends AbstractVerticle {
             .putHeader(CONTENT_TYPE, "application/json; charset=utf-8")
             .end(response.encodePrettily());
     }
+    
+    private void sentiment(RoutingContext rc) {
+      WebClient client = WebClient.create(vertx);
+      
+      client
+        .post(443,"ussouthcentral.services.azureml.net", "/workspaces/9dbf016f411f4388b7a574524b137656/services/954b60a6ae1c4903a9751a2a17ff988f/execute")
+        .putHeader("Content-Type", "application/json")
+        .putHeader("Authorization", "Bearer "+System.getenv("SENTIMENT_APIKEY"))
+        .addQueryParam("api-version", "2.0")
+        .addQueryParam("format", "swagger")
+        .ssl(true)
+        .sendJsonObject(new JsonObject("{\"Inputs\": {\"input1\": [{\"sentiment_label\":\"2\",\"tweet_text\":\"have a nice day\"}]},\"GlobalParameters\": {}}")
+            , ar -> {
+                if (ar.succeeded()) {
+                    HttpResponse<Buffer> response = ar.result();
+                    JsonObject sentimentResult = new JsonObject(response.bodyAsString());
+                    JsonObject xyz = sentimentResult.getJsonObject("Results");
+                    JsonArray xyz2 = xyz.getJsonArray("output1");
+                    JsonObject xyz3 = xyz2.getJsonObject(0);
+                    rc.response().end(xyz3.getString("Sentiment") + " : " + xyz3.getString("Score"));
+                } else {
+                    rc.response().end("FAIL: " + ar.cause().getMessage());
+            }
+        });
+    }
+
 
     private Future<String> retrieveMessageTemplateFromConfiguration() {
         Future<String> future = Future.future();
