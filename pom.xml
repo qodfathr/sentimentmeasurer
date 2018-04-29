@@ -70,6 +70,13 @@
       <version>1.7.22</version>
     </dependency>
 
+    <!-- Vertx oauth -->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-auth-oauth2</artifactId>
+      <version>3.5.1</version>
+    </dependency>
+
     <!-- Application logging -->
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>

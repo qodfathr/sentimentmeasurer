@@ -21,6 +21,10 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 
+import io.vertx.ext.auth.oauth2.OAuth2Auth;
+import io.vertx.ext.auth.oauth2.providers.TwitterAuth;
+import io.vertx.ext.web.codec.BodyCodec;
+
 import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
 
 /**
@@ -46,6 +50,7 @@ public class HttpApplication extends AbstractVerticle {
         Router router = Router.router(vertx);
         router.get("/api/greeting").handler(this::greeting);
         router.get("/api/sentiment").handler(this::sentiment);
+        router.get("/api/twit").handler(this::twit);
         router.get("/health").handler(rc -> rc.response().end("OK"));
         router.get("/").handler(StaticHandler.create());
 
@@ -140,7 +145,57 @@ public class HttpApplication extends AbstractVerticle {
             }
         });
     }
+    
+    private static final String AUTH_URL = "https://api.twitter.com/oauth2/token";
+    private static final String TWEET_SEARCH_URL = "https://api.twitter.com/1.1/search/tweets.json";
 
+    private void twit(RoutingContext rc) {
+        String consumerKey = System.getenv("TWITTER_CONSUMER_KEY");
+        String consumerSecret = System.getenv("TWITTER_CONSUMER_SECRET");
+        String B64_ENCODED_AUTH = java.util.Base64.getEncoder().encodeToString((consumerKey+":"+consumerSecret).getBytes());
+        WebClient client = WebClient.create(vertx);
+
+        String queryToSearch = "vertx";
+
+        // First we need to authenticate our call.
+        String authHeader = "Basic " + B64_ENCODED_AUTH;
+        client.postAbs(AUTH_URL)
+            .as(BodyCodec.jsonObject())
+            .addQueryParam("grant_type", "client_credentials")
+            .putHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+            .putHeader("Authorization", authHeader)
+            .send(authHandler -> {
+                // Authentication successful.
+                if (authHandler.succeeded() && 200 == authHandler.result().statusCode()) {
+                  JsonObject authJson = authHandler.result().body();
+                    String accessToken = authJson.getString("access_token");
+                    String header = "Bearer " + accessToken;
+                    // Making call to search tweets.
+                    client.getAbs(TWEET_SEARCH_URL)
+                        .as(BodyCodec.jsonObject())
+                        .addQueryParam("q", queryToSearch)
+                        .putHeader("Authorization", header)
+                        .send(handler -> {
+                            if (handler.succeeded() && 200 == handler.result().statusCode()) {
+                                rc.response().end(handler.result().body().toString());
+                            } else {
+                                rc.response().end(handler.cause().getMessage());
+                            }
+                    });
+                } else { // Authentication failed
+                    rc.response().end(authHandler.cause().getMessage());
+                }
+            });
+    }
+
+/*
+    private JsonArray validate(JsonObject res) {
+        Option(res.getJsonArray("errors")) match {
+            case Some(err) => Future.failed(new Exception(err.getJsonObject(0).encodePrettily()))
+            case None => Future.successful(res.getJsonArray("statuses"))
+        }
+    }
+*/
 
     private Future<String> retrieveMessageTemplateFromConfiguration() {
         Future<String> future = Future.future();
