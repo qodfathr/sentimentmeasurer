@@ -24,8 +24,12 @@ import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.providers.TwitterAuth;
 import io.vertx.ext.web.codec.BodyCodec;
+import io.vertx.rxjava.ext.auth.oauth2.AccessToken;
 
 import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
+
+import twitter4j.*;
+import twitter4j.conf.*;
 
 /**
  *
@@ -90,6 +94,55 @@ public class HttpApplication extends AbstractVerticle {
                 }
             });
         });
+        
+        tweetStorm();
+    }
+    
+    private void tweetStorm() {
+        String consumerKey = System.getenv("TWITTER_CONSUMER_KEY");
+        String consumerSecret = System.getenv("TWITTER_CONSUMER_SECRET");
+        String accessToken = System.getenv("TWITTER_ACCESS_TOKEN");
+        String accessTokenSecret = System.getenv("TWITTER_ACCESS_TOKEN_SECRET");
+        ConfigurationBuilder cb = new ConfigurationBuilder();
+        cb.setDebugEnabled(true)
+            .setOAuthConsumerKey(consumerKey)
+            .setOAuthConsumerSecret(consumerSecret)
+            .setOAuthAccessToken(accessToken)
+            .setOAuthAccessTokenSecret(accessTokenSecret);
+        TwitterStream twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
+        StatusListener listener = new StatusListener() {
+            @Override
+            public void onStatus(twitter4j.Status status) {
+                System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
+            }
+
+            @Override
+            public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
+                System.out.println("Got a status deletion notice id:" + statusDeletionNotice.getStatusId());
+            }
+
+            @Override
+            public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
+                System.out.println("Got track limitation notice:" + numberOfLimitedStatuses);
+            }
+
+            @Override
+            public void onScrubGeo(long userId, long upToStatusId) {
+                System.out.println("Got scrub_geo event userId:" + userId + " upToStatusId:" + upToStatusId);
+            }
+
+            @Override
+            public void onStallWarning(StallWarning warning) {
+                System.out.println("Got stall warning:" + warning);
+            }
+
+            @Override
+            public void onException(Exception ex) {
+                ex.printStackTrace();
+            }
+        };
+        twitterStream.addListener(listener);
+        twitterStream.sample();
     }
 
     private void setLogLevel(String level) {
@@ -134,7 +187,7 @@ public class HttpApplication extends AbstractVerticle {
         .sendJsonObject(new JsonObject("{\"Inputs\": {\"input1\": [{\"sentiment_label\":\"2\",\"tweet_text\":\"have a nice day\"}]},\"GlobalParameters\": {}}")
             , ar -> {
                 if (ar.succeeded()) {
-                    HttpResponse<Buffer> response = ar.result();
+                    io.vertx.ext.web.client.HttpResponse<Buffer> response = ar.result();
                     JsonObject sentimentResult = new JsonObject(response.bodyAsString());
                     JsonObject xyz = sentimentResult.getJsonObject("Results");
                     JsonArray xyz2 = xyz.getJsonArray("output1");
@@ -189,11 +242,20 @@ public class HttpApplication extends AbstractVerticle {
     }
 
 /*
-    private JsonArray validate(JsonObject res) {
-        Option(res.getJsonArray("errors")) match {
-            case Some(err) => Future.failed(new Exception(err.getJsonObject(0).encodePrettily()))
-            case None => Future.successful(res.getJsonArray("statuses"))
-        }
+    private void twit2(RoutingContext rc) {
+        String consumerKey = System.getenv("TWITTER_CONSUMER_KEY");
+        String consumerSecret = System.getenv("TWITTER_CONSUMER_SECRET");
+        OAuth2Auth oauth = TwitterAuth.create(vertx, consumerKey, consumerSecret);
+        
+        oauth.authenticate(new JsonObject(), res -> {
+            if (res.failed()) {
+                rc.response().end("Access Token Error: " + res.cause().getMessage());
+            } else {
+                // Get the access token object (the authorization code is given from the previous step).
+                AccessToken token = (AccessToken)res.result();
+                rc.response().end(token.accessToken().toString());
+            }
+        });
     }
 */
 
