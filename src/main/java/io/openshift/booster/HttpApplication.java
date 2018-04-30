@@ -30,7 +30,13 @@ import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
 
 import twitter4j.*;
 import twitter4j.conf.*;
-
+import io.vertx.servicediscovery.*;
+import io.vertx.servicediscovery.types.*;
+import io.vertx.core.Handler;
+import io.vertx.core.AsyncResult;
+import java.util.Set;
+import io.vertx.core.impl.ConcurrentHashSet;
+import io.vertx.core.eventbus.MessageConsumer;
 /**
  *
  */
@@ -95,10 +101,59 @@ public class HttpApplication extends AbstractVerticle {
             });
         });
         
+        discovery = ServiceDiscovery.create(vertx, new ServiceDiscoveryOptions().setBackendConfiguration(config()));
         tweetStorm();
     }
     
+    protected ServiceDiscovery discovery;
+    protected Set<Record> registeredRecords = new ConcurrentHashSet<>();
+
+
+    public void publishMessageSource(String name, String address, Handler<AsyncResult<Void>> completionHandler) {
+        Record record = MessageSource.createRecord(name, address);
+        publish(record, completionHandler);
+        
+        MessageSource.<JsonObject>getConsumer(discovery, new JsonObject().put("name",name), ar -> {
+            if (ar.succeeded()) {
+                MessageConsumer<JsonObject> consumer = ar.result();
+                
+                consumer.handler(message -> {
+                    System.out.println(message.body().toString());
+                });
+            } else {
+                    System.out.println("fail");
+            }
+        });
+    }
+
+    protected void publish(Record record, Handler<AsyncResult<Void>> completionHandler) {
+        if (discovery == null) {
+            try {
+                start();
+            } catch (Exception e) {
+                throw new RuntimeException("Cannot create discovery service");
+            }
+        }
+
+        discovery.publish(record, ar -> {
+            if (ar.succeeded()) {
+                registeredRecords.add(record);
+            }
+            completionHandler.handle(ar.map((Void)null));
+        });
+        
+  }
+  
     private void tweetStorm() {
+        
+        // Publish the services in the discovery infrastructure.
+        publishMessageSource("twitter-data", "tweets", rec -> {
+            if (!rec.succeeded()) {
+                rec.cause().printStackTrace();
+            }
+            System.out.println("Twitter-Data service published : " + rec.succeeded());
+        });
+    
         String consumerKey = System.getenv("TWITTER_CONSUMER_KEY");
         String consumerSecret = System.getenv("TWITTER_CONSUMER_SECRET");
         String accessToken = System.getenv("TWITTER_ACCESS_TOKEN");
@@ -113,7 +168,8 @@ public class HttpApplication extends AbstractVerticle {
         StatusListener listener = new StatusListener() {
             @Override
             public void onStatus(twitter4j.Status status) {
-                System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
+                //System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
+                vertx.eventBus().publish("tweets", new JsonObject().put("tweet", status.getText()));
             }
 
             @Override
