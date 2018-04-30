@@ -7,6 +7,17 @@
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
+    <style media="screen" type="text/css">
+    #wrapper {
+        width: 400px;
+        height: 400px;
+    }
+    #meter {
+        width: 100%;
+        height: 100%;
+        transform: rotateX(180deg);
+    }
+    </style>
 </head>
 
 <body>
@@ -53,7 +64,19 @@
     </div>
 </div>
 
+<div id="wrapper">
+    <svg id="meter">
+        <circle id="low" r="150" cx="50%" cy="50%" stroke="#FDE47F" stroke-width="60" stroke-dasharray="471, 943" fill="none"></circle>
+        <circle id="avg" r="150" cx="50%" cy="50%" stroke="#7CCCE5" stroke-width="60" stroke-dasharray="314, 943" fill="none"></circle>
+        <circle id="high" r="150" cx="50%" cy="50%" stroke="#E04644" stroke-width="60" stroke-dasharray="157, 943" fill="none"></circle>
+    </svg>
+</div>
 <div id="tweet">
+</div>
+<div id="tweets">
+    <ul id="tweetlist">
+        <li>dummy</li>
+    </ul>
 </div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
@@ -88,6 +111,7 @@ const receiveEvents = function() {
             //console.log('revieved ' + JSON.stringify(message.body));
             //document.getElementById("tweet").innerHTML = JSON.stringify(message.body);
             $('#tweet').html(JSON.stringify(message.body));
+            $('#tweetlist').prepend('<li>'+JSON.stringify(message.body)+'</li>');
         });
         console.log('registered');
     }
