@@ -198,7 +198,11 @@ public class HttpApplication extends AbstractVerticle {
             }
         };
         twitterStream.addListener(listener);
-        twitterStream.sample();
+        //twitterStream.sample();
+        FilterQuery filtre = new FilterQuery();
+        String[] keywordsArray = { "foo fighters" };
+        filtre.track(keywordsArray);
+        twitterStream.filter(filtre);
     }
 
     private void setLogLevel(String level) {
