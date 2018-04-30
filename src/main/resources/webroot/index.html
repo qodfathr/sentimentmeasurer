@@ -53,10 +53,18 @@
     </div>
 </div>
 
+<div id="tweet">
+</div>
+
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 
-<script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<!-- script src="https://cdnjs.cloudflare.com/ajax/libs/vertx/3.5.1/vertx-eventbus.js"></script -->
+<script src="js/vertx-eventbus.js"></script>
+
+
+<script type="text/javascript">
     $(document).ready(function() {
         $("#invoke").click(function(e) {
             var n = $("#name").val() || "World";
@@ -69,6 +77,22 @@
             e.preventDefault();
         });
     });
+
+const receiveEvents = function() {
+    console.log('yup');
+    var eb = new EventBus('/eventbus');
+    eb.onopen = function() {
+        console.log('registering');
+        eb.registerHandler('twitter-data-address', function(error, message) {
+            //console.log('something');
+            //console.log('revieved ' + JSON.stringify(message.body));
+            //document.getElementById("tweet").innerHTML = JSON.stringify(message.body);
+            $('#tweet').html(JSON.stringify(message.body));
+        });
+        console.log('registered');
+    }
+}
+receiveEvents();
 </script>
 
 </body>

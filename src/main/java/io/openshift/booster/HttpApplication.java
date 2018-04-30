@@ -37,6 +37,8 @@ import io.vertx.core.AsyncResult;
 import java.util.Set;
 import io.vertx.core.impl.ConcurrentHashSet;
 import io.vertx.core.eventbus.MessageConsumer;
+
+import io.vertx.ext.web.handler.sockjs.*;
 /**
  *
  */
@@ -62,7 +64,22 @@ public class HttpApplication extends AbstractVerticle {
         router.get("/api/sentiment").handler(this::sentiment);
         router.get("/api/twit").handler(this::twit);
         router.get("/health").handler(rc -> rc.response().end("OK"));
-        router.get("/").handler(StaticHandler.create());
+        router.get("/*").handler(StaticHandler.create());
+        //router.get("/js/*").handler(StaticHandler.create());
+        
+        //SockJSHandler sockJSHandler = SockJSHandler.create(vertx);
+        BridgeOptions options = new BridgeOptions()
+            .addInboundPermitted(new PermittedOptions().setAddress("twitter-data-address"))
+            .addOutboundPermitted(new PermittedOptions().setAddress("twitter-data-address"));
+        System.out.println("BRIDGING");
+        SockJSHandler sockJSHandler = SockJSHandler.create(vertx).bridge(options, event -> {
+            //if (event == null) System.out.println("FOOOOO: null");
+            //else System.out.println("FOOOOO: " + event.type());
+            event.complete(true);
+        });
+        System.out.println("BRIDGED");
+        
+        router.route("/eventbus/*").handler(sockJSHandler);
 
         retrieveMessageTemplateFromConfiguration()
             .setHandler(ar -> {
@@ -147,7 +164,7 @@ public class HttpApplication extends AbstractVerticle {
     private void tweetStorm() {
         
         // Publish the services in the discovery infrastructure.
-        publishMessageSource("twitter-data", "tweets", rec -> {
+        publishMessageSource("twitter-data-name", "twitter-data-address", rec -> {
             if (!rec.succeeded()) {
                 rec.cause().printStackTrace();
             }
@@ -169,7 +186,7 @@ public class HttpApplication extends AbstractVerticle {
             @Override
             public void onStatus(twitter4j.Status status) {
                 //System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
-                vertx.eventBus().publish("tweets", new JsonObject().put("tweet", status.getText()));
+                vertx.eventBus().publish("twitter-data-address", new JsonObject().put("tweet", status.getText()));
             }
 
             @Override
@@ -200,7 +217,7 @@ public class HttpApplication extends AbstractVerticle {
         twitterStream.addListener(listener);
         //twitterStream.sample();
         FilterQuery filtre = new FilterQuery();
-        String[] keywordsArray = { "foo fighters" };
+        String[] keywordsArray = { "infinity war" };
         filtre.track(keywordsArray);
         twitterStream.filter(filtre);
     }
