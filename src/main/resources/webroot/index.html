@@ -11,12 +11,26 @@
     #wrapper {
         width: 400px;
         height: 400px;
+        position: relative;
+        border-style: solid;
     }
     #meter {
+        position: absolute;
         width: 100%;
         height: 100%;
-        transform: rotateX(180deg);
+        transform: rotateX(180deg);// translateY(-150px) ;
     }
+    #meter_needle {
+		    position: absolute;
+		    transform-origin: bottom center;
+		    transform: translateX(-50%) translateY(20px);
+		    height: 50%;
+		    left: 50%;
+		    //margin: auto;
+		    //right: 0;
+		  //  top: 150px;
+		    //transform: rotate(270deg);
+		}
     </style>
 </head>
 
@@ -70,6 +84,7 @@
         <circle id="avg" r="150" cx="50%" cy="50%" stroke="#7CCCE5" stroke-width="60" stroke-dasharray="314, 943" fill="none"></circle>
         <circle id="high" r="150" cx="50%" cy="50%" stroke="#E04644" stroke-width="60" stroke-dasharray="157, 943" fill="none"></circle>
     </svg>
+    <img id="meter_needle" src="images/meter-arrow.svg">
 </div>
 <div id="tweet">
 </div>
@@ -112,6 +127,7 @@ const receiveEvents = function() {
             //document.getElementById("tweet").innerHTML = JSON.stringify(message.body);
             $('#tweet').html(JSON.stringify(message.body));
             $('#tweetlist').prepend('<li>'+JSON.stringify(message.body)+'</li>');
+            meter_needle.style.transform = 'rotate(' + (270 + ((35 * 180) / 100)) + 'deg) translateX(-50%) translateY(20px)';
         });
         console.log('registered');
     }
