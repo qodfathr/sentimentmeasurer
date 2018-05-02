@@ -217,7 +217,7 @@ public class HttpApplication extends AbstractVerticle {
         twitterStream.addListener(listener);
         //twitterStream.sample();
         FilterQuery filtre = new FilterQuery();
-        String[] keywordsArray = { "foo fighters" };
+        String[] keywordsArray = { "infinity war" };
         filtre.track(keywordsArray);
         twitterStream.filter(filtre);
     }
