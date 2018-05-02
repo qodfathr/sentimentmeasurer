@@ -135,7 +135,7 @@ public class HttpApplication extends AbstractVerticle {
                 MessageConsumer<JsonObject> consumer = ar.result();
                 
                 consumer.handler(message -> {
-                    System.out.println(message.body().toString());
+                    //System.out.println(message.body().toString());
                 });
             } else {
                     System.out.println("fail");
@@ -185,28 +185,40 @@ public class HttpApplication extends AbstractVerticle {
         StatusListener listener = new StatusListener() {
             @Override
             public void onStatus(twitter4j.Status status) {
-                //System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
-                vertx.eventBus().publish("twitter-data-address", new JsonObject().put("tweet", status.getText()));
+                if (!status.isPossiblySensitive()) {
+                    //System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
+                    String tweetText = status.getText();
+                    calculateSentimentForTweet(tweetText, res -> {
+                        if (res.succeeded())
+                        {
+                            JsonObject tweetInfo = new JsonObject()
+                                .put("user", status.getUser().getScreenName())
+                                .put("tweet", status.getText())
+                                .put("sentiment", res.result());
+                            vertx.eventBus().publish("twitter-data-address", tweetInfo);
+                        }
+                    });
+                }
             }
 
             @Override
             public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {
-                System.out.println("Got a status deletion notice id:" + statusDeletionNotice.getStatusId());
+                //System.out.println("Got a status deletion notice id:" + statusDeletionNotice.getStatusId());
             }
 
             @Override
             public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
-                System.out.println("Got track limitation notice:" + numberOfLimitedStatuses);
+                //System.out.println("Got track limitation notice:" + numberOfLimitedStatuses);
             }
 
             @Override
             public void onScrubGeo(long userId, long upToStatusId) {
-                System.out.println("Got scrub_geo event userId:" + userId + " upToStatusId:" + upToStatusId);
+                //System.out.println("Got scrub_geo event userId:" + userId + " upToStatusId:" + upToStatusId);
             }
 
             @Override
             public void onStallWarning(StallWarning warning) {
-                System.out.println("Got stall warning:" + warning);
+                //System.out.println("Got stall warning:" + warning);
             }
 
             @Override
@@ -251,28 +263,48 @@ public class HttpApplication extends AbstractVerticle {
             .end(response.encodePrettily());
     }
     
-    private void sentiment(RoutingContext rc) {
+    private void calculateSentimentForTweet(String tweet, Handler<AsyncResult<Double>> handler) {
       WebClient client = WebClient.create(vertx);
       
-      client
+     client
         .post(443,"ussouthcentral.services.azureml.net", "/workspaces/9dbf016f411f4388b7a574524b137656/services/954b60a6ae1c4903a9751a2a17ff988f/execute")
         .putHeader("Content-Type", "application/json")
         .putHeader("Authorization", "Bearer "+System.getenv("SENTIMENT_APIKEY"))
         .addQueryParam("api-version", "2.0")
         .addQueryParam("format", "swagger")
         .ssl(true)
-        .sendJsonObject(new JsonObject("{\"Inputs\": {\"input1\": [{\"sentiment_label\":\"2\",\"tweet_text\":\"have a nice day\"}]},\"GlobalParameters\": {}}")
+        .sendJsonObject(new JsonObject("{\"Inputs\": {\"input1\": [{\"sentiment_label\":\"2\",\"tweet_text\":\"" + tweet.replace("\"", "\\\"").replace("\r","").replace("\n","") + "\"}]},\"GlobalParameters\": {}}")
             , ar -> {
                 if (ar.succeeded()) {
                     io.vertx.ext.web.client.HttpResponse<Buffer> response = ar.result();
                     JsonObject sentimentResult = new JsonObject(response.bodyAsString());
                     JsonObject xyz = sentimentResult.getJsonObject("Results");
-                    JsonArray xyz2 = xyz.getJsonArray("output1");
-                    JsonObject xyz3 = xyz2.getJsonObject(0);
-                    rc.response().end(xyz3.getString("Sentiment") + " : " + xyz3.getString("Score"));
+                    if (xyz != null)
+                    {
+                        try {
+                            JsonArray xyz2 = xyz.getJsonArray("output1");
+                            JsonObject xyz3 = xyz2.getJsonObject(0);
+                            double score = Double.parseDouble(xyz3.getString("Score"));
+                            handler.handle(Future.succeededFuture(score));
+                        } catch(Exception e) {
+                            handler.handle(Future.failedFuture(e.getMessage()));
+                        }
+                    } else {
+                        handler.handle(Future.failedFuture("failed"));
+                    }
                 } else {
-                    rc.response().end("FAIL: " + ar.cause().getMessage());
+                    handler.handle(Future.failedFuture("failed ar"));
             }
+        });
+        
+    }
+    
+    private void sentiment(RoutingContext rc) {
+        //double score = calculateSentimentForTweet("have a nice day");
+        //rc.response().end(score.toString());
+        calculateSentimentForTweet("have a nice day", res ->{
+            if (res.succeeded())
+                rc.response().end("Score: " + res.result().toString());
         });
     }
     

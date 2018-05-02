@@ -116,7 +116,12 @@
         });
     });
     
-    var needle = 50;
+
+var scores = [0.5];
+
+function getSum(total, num) {
+    return total + num;
+}
 
 const receiveEvents = function() {
     console.log('yup');
@@ -127,12 +132,13 @@ const receiveEvents = function() {
             //console.log('something');
             //console.log('revieved ' + JSON.stringify(message.body));
             //document.getElementById("tweet").innerHTML = JSON.stringify(message.body);
-            $('#tweet').html(JSON.stringify(message.body));
+            $('#tweet').html(JSON.stringify(message.body.tweet));
             $('#tweetlist').prepend('<li>'+JSON.stringify(message.body)+'</li>');
             var length = JSON.stringify(message.body).length;
-            //if (length > needle) needle++; else needle = needle -3;
-            needle++; if (needle == 360) needle = 0;
-            meter_needle.style.transform = 'rotate(' + (270 + ((needle * 180) / 100)) + 'deg) translateX(-50%) translateY(20px)';
+            scores.unshift(message.body.sentiment);
+            if (scores.length == 31) scores.pop();
+            meter_needle.style.transition = 'transform 0.1s linear';
+            meter_needle.style.transform = 'rotate(' + (270 + (((scores.reduce(getSum) / scores.length) * 100 * 180) / 100)) + 'deg) translateX(-50%) translateY(20px)';
         });
         console.log('registered');
     }
