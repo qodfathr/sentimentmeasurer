@@ -1,0 +1,27 @@
+@CHARSET "UTF-8";
+    #wrapper {
+        width: 400px;
+        height: 400px;
+        position: relative;
+        border-style: solid;
+    }
+    #meter {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        transform: rotateX(180deg);// translateY(-150px) ;
+    }
+    #meter_needle {
+		    position: absolute;
+		    transform-origin: 0 100%;
+		    transform: translateX(-50%) translateY(20px);
+		    height: 50%;
+		    left: 50%;
+		    //margin: auto;
+		    //right: 0;
+		  //  top: 150px;
+		    //transform: rotate(270deg);
+		}
+		table, th, td {
+		    border: 1px solid black;
+		}
