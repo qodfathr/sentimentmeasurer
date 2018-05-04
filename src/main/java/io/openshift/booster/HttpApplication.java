@@ -55,7 +55,7 @@ public class HttpApplication extends AbstractVerticle {
     @Override
     public void start(Future<Void> future) {
         setUpConfiguration();
-
+        
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx)
             .register("server-online", fut -> fut.complete(online ? Status.OK() : Status.KO()));
         
@@ -195,13 +195,15 @@ public class HttpApplication extends AbstractVerticle {
                 if (!status.isPossiblySensitive()) {
                     //System.out.println("@" + status.getUser().getScreenName() + " - " + status.getText());
                     String tweetText = status.getText();
+                    if (containsABadWord(tweetText)) return;
                     calculateSentimentForTweet(tweetText, res -> {
                         if (res.succeeded())
                         {
                             JsonObject tweetInfo = new JsonObject()
                                 .put("user", status.getUser().getScreenName())
                                 .put("tweet", status.getText())
-                                .put("sentiment", res.result());
+                                .put("sentiment", res.result().getFirst())
+                                .put("sentimentScore", res.result().getSecond());
                             vertx.eventBus().publish(TWITTER_EVENTBUS_ADDRESS, tweetInfo);
                         }
                     });
@@ -240,6 +242,7 @@ public class HttpApplication extends AbstractVerticle {
     
     private void startStreamingTopic(String topic)
     {
+        twitterStream.cleanUp();
         FilterQuery filter = new FilterQuery();
         String[] keywordsArray = { topic };
         filter.track(keywordsArray);
@@ -298,7 +301,7 @@ public class HttpApplication extends AbstractVerticle {
             .end(response.encodePrettily());
     }
     
-    private void calculateSentimentForTweet(String tweet, Handler<AsyncResult<Double>> handler) {
+    private void calculateSentimentForTweet(String tweet, Handler<AsyncResult<Pair<String,Double>>> handler) {
       WebClient client = WebClient.create(vertx);
       
      client
@@ -313,14 +316,15 @@ public class HttpApplication extends AbstractVerticle {
                 if (ar.succeeded()) {
                     io.vertx.ext.web.client.HttpResponse<Buffer> response = ar.result();
                     JsonObject sentimentResult = new JsonObject(response.bodyAsString());
-                    JsonObject xyz = sentimentResult.getJsonObject("Results");
-                    if (xyz != null)
+                    JsonObject results = sentimentResult.getJsonObject("Results");
+                    if (results != null)
                     {
                         try {
-                            JsonArray xyz2 = xyz.getJsonArray("output1");
-                            JsonObject xyz3 = xyz2.getJsonObject(0);
-                            double score = Double.parseDouble(xyz3.getString("Score"));
-                            handler.handle(Future.succeededFuture(score));
+                            JsonArray output1 = results.getJsonArray("output1");
+                            JsonObject firstResult = output1.getJsonObject(0);
+                            String sentiment = firstResult.getString("Sentiment");
+                            Double score = Double.parseDouble(firstResult.getString("Score"));
+                            handler.handle(Future.succeededFuture(new Pair<String,Double>(sentiment,score)));
                         } catch(Exception e) {
                             handler.handle(Future.failedFuture(e.getMessage()));
                         }
@@ -331,7 +335,6 @@ public class HttpApplication extends AbstractVerticle {
                     handler.handle(Future.failedFuture("failed ar"));
             }
         });
-        
     }
     
     private void sentiment(RoutingContext rc) {
@@ -348,6 +351,34 @@ public class HttpApplication extends AbstractVerticle {
                 .map(json -> json.getString("message"))
                 .otherwise(t -> null)));
         return future;
+    }
+    
+    // Look, I'm trying to avoid having bad English words appear on screen during my demo.
+    // But I don't want to liter my source code with bad words, either, in case anyone wants to
+    // read this source.
+    // So I'm giving you an ounce of protection -- I've "encrypted" the bad words with ROT13.
+    // If you elect to decrypt these, you are making a choice to do so. Don't tell me after the fact
+    // that you are offended. I tried. I really tried.
+    final static String[] BAD_WORDS_ROT13 = {"shpx", "fuvg", "phag", "qnza", "snt", "snttbg",
+        "ovgpu", "fyhg", "pbpx", "cvff", "encr", "qvpx", "cravf", "intvan", "gvgf",
+        "oybj", "avttre", "avttn", "avtn", "oynpx", "crqb", "nff", "frk", "arteb", "zvabevgvrf", "zvabevgl",
+        "spxa", "crei"
+        };
+    private static String[] BAD_WORDS;
+
+    private boolean containsABadWord(String text) {
+        if (BAD_WORDS == null) {
+            BAD_WORDS = new String[BAD_WORDS_ROT13.length];
+            int i=0;
+            for (String badword13: BAD_WORDS_ROT13) {
+                BAD_WORDS[i++] = Rot13.rotate(badword13);
+            }
+        }
+        String lowerText = text.toLowerCase();
+        for (String badword: BAD_WORDS) {
+            if (lowerText.contains(badword)) return true;
+        }
+        return false;
     }
 
     private void setUpConfiguration() {
