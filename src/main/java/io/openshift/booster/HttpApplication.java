@@ -242,10 +242,10 @@ public class HttpApplication extends AbstractVerticle {
     
     private void startStreamingTopic(String topic)
     {
-        FilterQuery filter = new FilterQuery();
-        String[] keywordsArray = { topic };
-        filter.track(keywordsArray);
-        twitterStream.filter(filter);
+        vertx.executeBlocking(future -> {
+            twitterStream.filter(topic);
+            future.complete();
+        }, res -> {});
     }
 
     private void setLogLevel(String level) {
