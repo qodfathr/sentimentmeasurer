@@ -61,6 +61,7 @@ public class HttpApplication extends AbstractVerticle {
         
         Router router = Router.router(vertx);
         router.get("/api/greeting").handler(this::greeting);
+        router.get("/api/topic").handler(this::topic);
         router.get("/api/sentiment").handler(this::sentiment);
         router.get("/health").handler(rc -> rc.response().end("OK"));
         router.get("/*").handler(StaticHandler.create());
@@ -117,9 +118,15 @@ public class HttpApplication extends AbstractVerticle {
         tweetStorm();
     }
     
+    @Override
+    public void stop(Future<Void> stopFuture) {
+        if (discovery != null) discovery.close();
+        if (twitterStream != null) twitterStream.shutdown();
+        stopFuture.complete();
+    }
+    
     protected ServiceDiscovery discovery;
     protected Set<Record> registeredRecords = new ConcurrentHashSet<>();
-
 
     public void publishMessageSource(String name, String address, Handler<AsyncResult<Void>> completionHandler) {
         Record record = MessageSource.createRecord(name, address);
@@ -141,6 +148,7 @@ public class HttpApplication extends AbstractVerticle {
     }
 
     protected void publish(Record record, Handler<AsyncResult<Void>> completionHandler) {
+        /*
         if (discovery == null) {
             try {
                 start();
@@ -148,16 +156,18 @@ public class HttpApplication extends AbstractVerticle {
                 throw new RuntimeException("Cannot create discovery service");
             }
         }
-
+        */
+       
         discovery.publish(record, ar -> {
             if (ar.succeeded()) {
                 registeredRecords.add(record);
             }
             completionHandler.handle(ar.map((Void)null));
         });
-        
-  }
+    }
   
+    protected TwitterStream twitterStream;
+    
     private void tweetStorm() {
         
         // Publish the services in the discovery infrastructure.
@@ -178,7 +188,7 @@ public class HttpApplication extends AbstractVerticle {
             .setOAuthConsumerSecret(consumerSecret)
             .setOAuthAccessToken(accessToken)
             .setOAuthAccessTokenSecret(accessTokenSecret);
-        TwitterStream twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
+        twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
         StatusListener listener = new StatusListener() {
             @Override
             public void onStatus(twitter4j.Status status) {
@@ -224,9 +234,14 @@ public class HttpApplication extends AbstractVerticle {
             }
         };
         twitterStream.addListener(listener);
-        //twitterStream.sample();   // this takes in the entire twitter real-time stream, unfiltered.
+        //twitterStream.sample();   // this takes in a sampling of the entire twitter real-time stream, unfiltered.
+        startStreamingTopic("openshiftio");
+    }
+    
+    private void startStreamingTopic(String topic)
+    {
         FilterQuery filter = new FilterQuery();
-        String[] keywordsArray = { "infinity war" };
+        String[] keywordsArray = { topic };
         filter.track(keywordsArray);
         twitterStream.filter(filter);
     }
@@ -239,6 +254,29 @@ public class HttpApplication extends AbstractVerticle {
         ctx.updateLoggers();
     }
 
+    private void topic(RoutingContext rc) {
+        if (message == null) {
+            rc.response().setStatusCode(500)
+                .putHeader(CONTENT_TYPE, "application/json; charset=utf-8")
+                .end(new JsonObject().put("content", "no config map").encode());
+            return;
+        }
+        
+        String topic = rc.request().getParam("topic");
+        if (topic == null) {
+            topic = "openshiftio";
+        }
+        startStreamingTopic(topic);
+
+        LOGGER.debug("Replying to request, parameter={}", topic);
+        JsonObject response = new JsonObject()
+            .put("content", String.format(message, topic));
+
+        rc.response()
+            .putHeader(CONTENT_TYPE, "application/json; charset=utf-8")
+            .end(response.encodePrettily());
+    }
+    
     private void greeting(RoutingContext rc) {
         if (message == null) {
             rc.response().setStatusCode(500)

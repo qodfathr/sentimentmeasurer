@@ -153,6 +153,13 @@
       <artifactId>vertx-service-discovery</artifactId>
       <version>3.5.1</version>
     </dependency>
+    
+    <!-- webapp runner -->
+    <!-- dependency>
+        <groupId>com.github.jsimone</groupId>
+        <artifactId>webapp-runner</artifactId>
+        <version>7.0.22.3</version>
+    </dependency-->
 
   </dependencies>
 
