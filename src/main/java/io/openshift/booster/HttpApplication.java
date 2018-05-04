@@ -242,7 +242,6 @@ public class HttpApplication extends AbstractVerticle {
     
     private void startStreamingTopic(String topic)
     {
-        twitterStream.cleanUp();
         FilterQuery filter = new FilterQuery();
         String[] keywordsArray = { topic };
         filter.track(keywordsArray);
