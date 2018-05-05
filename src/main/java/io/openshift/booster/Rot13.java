@@ -3,6 +3,7 @@ package io.openshift.booster;
 public class Rot13 {
     
     public static String rotate(String textToRotate) {
+        if (textToRotate == null) return null;
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < textToRotate.length(); i++) {
             sb.append(rotChar(textToRotate.charAt(i)));
