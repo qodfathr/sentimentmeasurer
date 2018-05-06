@@ -353,7 +353,7 @@ public class HttpApplication extends AbstractVerticle {
     }
     
     // Look, I'm trying to avoid having bad English words appear on screen during my demo.
-    // But I don't want to liter my source code with bad words, either, in case anyone wants to
+    // But I don't want to litter my source code with bad words, either, in case anyone wants to
     // read this source.
     // So I'm giving you an ounce of protection -- I've "encrypted" the bad words with ROT13.
     // If you elect to decrypt these, you are making a choice to do so. Don't tell me after the fact
