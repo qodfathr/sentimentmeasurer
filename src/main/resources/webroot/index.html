@@ -106,21 +106,26 @@ const receiveEvents = function() {
         console.log('registering');
         eb.registerHandler('twitter-data-address', function(error, message) {
             var color = "blue";
+            var sentimentChar = "😐";
             switch(message.body.sentiment) {
                 case "positive":
+                    sentimentChar = "😊";
                     color = "green";
                     break;
                 case "neutral":
+                    sentimentChar = "😐";
                     color = "blue";
                     break;
                 case "negative":
+                    sentimentChar = "😪";
                     color = "red";
                     break;
             }
             //$('<tr><td>'+message.body.tweet+'</td><td>'+message.body.sentiment+'</td></tr>').prependTo('#tweettable > tbody')
-            $('<tr><td style="height:40px">'+message.body.tweet+'</td><td style="height:40px">'+
-                '<svg style="width:30px;height:30px"><circle r="10" cx="50%" cy="50%" stroke="'+color+'" stroke-width="4" fill="none"></circle></svg>'+
-                '</td></tr>').prependTo('#tweettable > tbody')
+            $('<tr><td style="height:40px">'+message.body.tweet+'</td><td style="height:40px">'
+                +'<svg style="width:30px;height:30px"><circle r="10" cx="50%" cy="50%" stroke="'+color+'" stroke-width="4" fill="none"></circle></svg>'
+                +sentimentChar
+                +'</td></tr>').prependTo('#tweettable > tbody');
             var length = JSON.stringify(message.body).length;
             scores.unshift(message.body.sentimentScore);
             if (scores.length == movingAverageSize) scores.pop();
