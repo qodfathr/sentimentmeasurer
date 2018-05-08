@@ -59,12 +59,12 @@ public class HttpApplication extends AbstractVerticle {
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx)
             .register("server-online", fut -> fut.complete(online ? Status.OK() : Status.KO()));
         
-        Router rahda = Router.router(vertx);
-        rahda.get("/api/greeting").handler(this::greeting);
-        rahda.get("/api/topic").handler(this::topic);
-        rahda.get("/api/sentiment").handler(this::sentiment);
-        rahda.get("/health").handler(rc -> rc.response().end("OK"));
-        rahda.get("/*").handler(StaticHandler.create());
+        Router router = Router.router(vertx);
+        router.get("/api/greeting").handler(this::greeting);
+        router.get("/api/topic").handler(this::topic);
+        router.get("/api/sentiment").handler(this::sentiment);
+        router.get("/health").handler(rc -> rc.response().end("OK"));
+        router.get("/*").handler(StaticHandler.create());
         
         BridgeOptions options = new BridgeOptions()
             .addInboundPermitted(new PermittedOptions().setAddress(TWITTER_EVENTBUS_ADDRESS))
@@ -75,7 +75,7 @@ public class HttpApplication extends AbstractVerticle {
         });
         System.out.println("BRIDGED");
         
-        rahda.route("/eventbus/*").handler(sockJSHandler);
+        router.route("/eventbus/*").handler(sockJSHandler);
 
         retrieveMessageTemplateFromConfiguration()
             .setHandler(ar -> {
@@ -83,7 +83,7 @@ public class HttpApplication extends AbstractVerticle {
                 message = ar.result();
                 vertx
                     .createHttpServer()
-                    .requestHandler(rahda::accept)
+                    .requestHandler(router::accept)
                     .listen(
                         // Retrieve the port from the configuration,
                         // default to 8080.
